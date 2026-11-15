@@ -148,6 +148,132 @@ class Parancssor(unittest.TestCase):
             self.assertEqual(json.loads(ki)[0]["talalatok"][0]["sor"], 3)
 
 
+class UjMagyarSzabalyok(unittest.TestCase):
+    def test_valo_torteno(self):
+        self.assertIn("valo-torteno", szabalyok("A megközelítésekhez való kapcsolás nehéz."))
+        self.assertNotIn("valo-torteno", szabalyok("A politikushoz való viszony változott."))
+
+    def test_fonevesites_suruseg(self):
+        s = ("Az elsajátítási viszony fogalmi elkülönítésével, belső különbségeinek rendszerezésével "
+             "és más megközelítésekhez való kapcsolásával kívánok hozzájárulni a vizsgálathoz.")
+        t = szabalyok(s)
+        self.assertIn("fonevesites-suruseg", t)
+        self.assertIn("kivan-ige", t)
+        self.assertNotIn("fonevesites-suruseg", szabalyok("A vallás kérdése más, mint a tudás kérdése és az írás."))
+
+    def test_terjengos_es_letige(self):
+        t = szabalyok("Annak érdekében, hogy működjön, a modul eszközként szolgál, és fontos szerepet játszik.")
+        self.assertIn("terjengos-kotoszo", t)
+        self.assertIn("letige-kerules", t)
+
+    def test_altal_es_nevmas(self):
+        self.assertIn("altal-szerkezet", szabalyok("A személy által vállalt viszony tartós."))
+        self.assertIn("nevmas-tulzas", szabalyok("Ez egy olyan eszköz, amely gyorsít."))
+
+    def test_hivataloskodo_e_nevmas(self):
+        self.assertIn("hivataloskodas", szabalyok("E szempont elkülönítése hasznos."))
+        self.assertNotIn("hivataloskodas", szabalyok("Tudod-e, hogy esik?"))
+
+    def test_mondatkezdo_szabalyok(self):
+        self.assertIn("osszegzo-nyito", szabalyok("Jó lett. Összességében a terv bevált."))
+        s = "Emellett olcsó. Továbbá gyors. A többi rendben."
+        self.assertIn("atvezeto-suruseg", szabalyok(s))
+        self.assertNotIn("atvezeto-suruseg", szabalyok("Emellett olcsó. A többi rendben."))
+
+    def test_chatbot_es_emoji(self):
+        t = szabalyok("Remélem, ez segít! 🚀")
+        self.assertIn("chatbot-nyom", t)
+        self.assertIn("emoji", t)
+
+    def test_egyhangu_ritmus(self):
+        mondat = "Ez a mondat pontosan tizenkét szóból áll, hogy a ritmus egyhangú legyen itt. "
+        self.assertIn("egyhangu-ritmus", szabalyok(mondat * 4))
+        vegyes = mondat * 3 + "Rövid ez."
+        self.assertNotIn("egyhangu-ritmus", szabalyok(vegyes))
+
+
+class Angol(unittest.TestCase):
+    def sz(self, szoveg):
+        return [t["szabaly"] for t in stiluslint.ellenoriz(szoveg, nyelv="en")]
+
+    def test_kifejezesek(self):
+        esetek = {
+            "filler": "It is important to note that the market changed.",
+            "wordy": "We did this in order to save time.",
+            "inflated": "The method plays a crucial role in the field.",
+            "promo": "A groundbreaking platform.",
+            "buzzword": "We delve into the topic.",
+            "copula-avoidance": "The library serves as a hub.",
+            "ing-tail": "Sales rose, highlighting the strength of the brand.",
+            "vague-attribution": "Studies show that it works.",
+            "generic-conclusion": "The field continues to evolve.",
+            "summary-opener": "It works. In conclusion, we are done.",
+            "knowledge-cutoff": "As of my last update, prices rose.",
+            "chatbot-residue": "I hope this helps!",
+            "nominalisation": "They conducted an analysis of the data.",
+            "rhetorical-fragment": "The result? Chaos.",
+            "hedging": "This could potentially help.",
+            "not-only-but": "It is not only fast but also cheap.",
+        }
+        for az, szoveg in esetek.items():
+            self.assertIn(az, self.sz(szoveg), az)
+
+    def test_tiszta_szoveg(self):
+        self.assertEqual(self.sz("The team reviewed the code yesterday. They found two bugs."), [])
+
+    def test_surusegek(self):
+        self.assertIn("transition-density", self.sz("Moreover, it is cheap. Furthermore, it is fast."))
+        self.assertNotIn("transition-density", self.sz("Moreover, it is cheap. It is fast."))
+        passziv = "The data were collected. The files were stored. The labels were checked. The results were saved."
+        self.assertIn("passive-density", self.sz(passziv))
+        self.assertIn("triad-density", self.sz("Fast, cheap, and reliable. Design, build, and maintain."))
+        self.assertNotIn("triad-density", self.sz("See Alston, Audi, and McKaughan; also Metz, Kruikemeier, and Lecheler."))
+        self.assertIn("long-sentence", self.sz(" ".join(["word"] * 45) + "."))
+
+    def test_nyelvfelismeres(self):
+        self.assertEqual(stiluslint.nyelv_felismer("The team reviewed the code and found that it was fine."), "en")
+        self.assertEqual(stiluslint.nyelv_felismer("A csapat átnézte a kódot, és nem talált hibát."), "hu")
+
+    def test_angol_utmutato_es_aliasok(self):
+        with tempfile.TemporaryDirectory() as d:
+            be = os.path.join(d, "a.txt")
+            ki = os.path.join(d, "guide.md")
+            with open(be, "w", encoding="utf-8") as f:
+                f.write("It is important to note that the tool is groundbreaking.\n")
+            kepernyo = io.StringIO()
+            with redirect_stdout(kepernyo):
+                kod = stiluslint.main([be, "--guide", "--output", ki, "--level", "fix", "--strict"])
+            self.assertEqual(kod, 1)
+            with open(ki, encoding="utf-8") as f:
+                u = f.read()
+            self.assertIn("# Revision guide:", u)
+            self.assertIn("**How to fix it:**", u)
+            self.assertIn("- line 1: 'It is important to note that'", u)
+            self.assertIn("**Line 1**", u)
+
+    def test_json_nyelv_mezo(self):
+        with tempfile.TemporaryDirectory() as d:
+            be = os.path.join(d, "a.txt")
+            with open(be, "w", encoding="utf-8") as f:
+                f.write("The team reviewed the code and it was fine.\n")
+            ki = io.StringIO()
+            with redirect_stdout(ki):
+                stiluslint.main([be, "--json"])
+            self.assertEqual(json.loads(ki.getvalue())[0]["nyelv"], "en")
+
+
+class Szabalytar(unittest.TestCase):
+    def test_minden_szabaly_teljes(self):
+        for ny, lista in stiluslint.NYELVEK.items():
+            azonositok = [s.az for s in lista]
+            self.assertEqual(len(azonositok), len(set(azonositok)), ny)
+            for s in lista:
+                self.assertIn(s.szint, stiluslint.SZINTEK, s.az)
+                self.assertTrue(s.leiras and s.javaslat and s.cim and s.miert and s.lepesek, s.az)
+                self.assertIn("{r}", s.sablon, s.az)
+                self.assertTrue(s.mintak or s.kulon, s.az)
+
+
 class Utmutato(unittest.TestCase):
     def _utmutato(self, szoveg, fajl="a.txt", docx=False):
         t = stiluslint.ellenoriz(szoveg)

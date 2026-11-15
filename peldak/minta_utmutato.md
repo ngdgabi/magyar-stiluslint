@@ -1,6 +1,6 @@
 # Javítási útmutató: peldak/minta.txt
 
-A szövegben 11 megjelölt hely van 99 szóra (111.1 / ezer szó), 10 féle teendővel.
+A szövegben 12 megjelölt hely van 99 szóra (121.2 / ezer szó), 11 féle teendővel.
 
 Az útmutató utasításokat ad, a szöveget nem írja át. Minden jelölés kérdés: ha egy fordulat a műfajhoz tartozik vagy szándékos, maradhat.
 
@@ -132,7 +132,22 @@ Az útmutató utasításokat ad, a szöveget nem írja át. Minden jelölés ké
 
 - 1. sor: „Fontos megjegyezni, hogy”
 
-### 9. Egyszerűsítsd a hivataloskodó fordulatokat
+### 9. Cseréld konkrétumra a divatszavakat
+
+1 hely · mérlegelendő · szabály: `divatszo`
+
+**Miért gond:** A „komplex”, „átfogó”, „dinamikus” bármire ráillik, ezért nem jellemzi azt, amiről írsz.
+
+**Így javítsd:**
+
+1. Kérdezd meg: mitől komplex, miben átfogó?
+2. A választ írd a szó helyére, vagy hagyd el a szót.
+
+**Hol:**
+
+- 3. sor: „széles körben”
+
+### 10. Egyszerűsítsd a hivataloskodó fordulatokat
 
 1 hely · mérlegelendő · szabály: `hivataloskodas`
 
@@ -141,13 +156,13 @@ Az útmutató utasításokat ad, a szöveget nem írja át. Minden jelölés ké
 **Így javítsd:**
 
 1. Döntsd el, kell-e a szöveg műfajához a hivatali hang. Ha igen, a találat maradhat.
-2. Ha nem: „az adott X” → „az X” vagy „ez az X”; „amennyiben” → „ha”; „X tekintetében” → ragos alak („X-ben”, „X-ről”).
+2. Ha nem: „az adott X” → „az X” vagy „ez az X”; „amennyiben” → „ha”; „X tekintetében” → ragos alak („X-ben”, „X-ről”); „E szempont” → „Ez a szempont”.
 
 **Hol:**
 
 - 3. sor: „az adott módszerek”
 
-### 10. Egyszerűsítsd a „nemcsak… hanem… is” szerkezeteket
+### 11. Egyszerűsítsd a „nemcsak… hanem… is” szerkezeteket
 
 1 hely · mérlegelendő · szabály: `nemcsak-hanem`
 
@@ -175,6 +190,7 @@ A fenti teendők a szöveg sorrendjében, helyenként:
 **3. sor**
 
 - Hagyj legfeljebb egy „amely” mellékmondatot, a többit írd jelzőnek vagy külön mondatnak: „Az agilis módszerek, amelyek széles körben elterjedtek, amelyek gyorsabb reagálást teszne…”.
+- Mondd meg konkrétan, mit jelent itt: „széles körben”.
 - Használd a főnévbe rejtett igét: „lehetőséget biztosítanak”.
 - Írd oda a pontos forrást, vagy hagyd el az állítást: „Kutatások bizonyítják”.
 - Mondd egyszerűbben, ha a műfaj engedi: „az adott módszerek”.
