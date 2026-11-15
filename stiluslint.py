@@ -21,7 +21,7 @@ import zipfile
 from collections import Counter
 from xml.etree import ElementTree
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 SZINTEK = {"info": 0, "figyelem": 1}
 FLAGS = re.IGNORECASE | re.UNICODE
@@ -256,6 +256,193 @@ SZABALY_LEIRASOK["idezojel"] = (
     "Magyar szövegben „így” idézünk, a belső idézet »ilyen«.",
 )
 
+# Javítási útmutató: szabályonként (cím, miért gond, lépések, egy találatra szóló utasítás).
+# A „{r}” helyére a megjelölt szövegrészlet kerül.
+UTMUTATO = {
+    "kerul-asra": (
+        "Oldd fel a körülíró („-ásra/-ésre kerül”) szerkezeteket",
+        "A szerkezet elrejti, ki cselekszik, és hivatali hangot ad a mondatnak.",
+        [
+            "Keresd meg, ki végzi a cselekvést (a szerző, a kutatók, a rendszer).",
+            "Tedd őt alannyá, a főnevet pedig alakítsd vissza igévé.",
+            "Ha a cselekvő tényleg ismeretlen vagy lényegtelen, használj többes szám harmadik személyt („bevezették”).",
+        ],
+        "Nevezd meg a cselekvőt, és írd át igével: „{r}”.",
+    ),
+    "funkcioige": (
+        "Cseréld igére a funkcióigés főnevesítéseket",
+        "A „főnév + végez/biztosít/irányul” kétszer olyan hosszú, mint az ige, és semmit nem tesz hozzá.",
+        [
+            "Keresd meg a szerkezetben a főnévbe rejtett igét („ellenőrzés” → „ellenőriz”).",
+            "Írd át a mondatot ezzel az igével, a segédigét hagyd el.",
+            "Olvasd újra: ha a mondat rövidebb lett és ugyanazt mondja, a csere jó.",
+        ],
+        "Használd a főnévbe rejtett igét: „{r}”.",
+    ),
+    "toltelek": (
+        "Töröld a töltelékfelvezetéseket",
+        "A felvezetés bejelenti, hogy fontos dolog következik, ahelyett hogy kimondaná.",
+        [
+            "Töröld a fordulatot a „hogy” kötőszóval együtt.",
+            "Kezdd a mondatot azzal, ami a felvezetés után állt.",
+            "Ha a mondat így súlytalannak hat, a tartalmát erősítsd, ne a felvezetést tedd vissza.",
+        ],
+        "Töröld a felvezetést, és kezdd a mondatot a tartalommal: „{r}”.",
+    ),
+    "felnagyitas": (
+        "Vedd vissza a felnagyító jelzőket",
+        "Ha minden kulcsfontosságú, az olvasó nem tudja, mi az, ami tényleg az.",
+        [
+            "Kérdezd meg a mondattól: miért fontos ez, és kinek?",
+            "Ha van válasz, azt írd le a jelző helyett. Ha nincs, töröld a jelzőt.",
+        ],
+        "Írd le a jelző helyett, miért fontos, vagy töröld: „{r}”.",
+    ),
+    "reklamiz": (
+        "Cseréld tényre a reklámízű jelzőket",
+        "Semleges szövegben a reklámnyelv hiteltelenné teszi az állítást.",
+        [
+            "Írd le, miben különbözik a dolog a többitől (adat, példa, összehasonlítás).",
+            "Ha ilyet nem tudsz mondani, hagyd el a jelzőt.",
+        ],
+        "Cseréld konkrét tulajdonságra vagy töröld: „{r}”.",
+    ),
+    "sablonos-lezaras": (
+        "Írd át vagy töröld a sablonos lezárásokat",
+        "Az általános derűlátás bármely szöveg végére odaillene, ezért itt sem mond semmit.",
+        [
+            "Töröld a mondatot, és nézd meg, hiányzik-e.",
+            "Ha kell lezárás, mondj konkrétumot: mi következik, mi maradt nyitva.",
+        ],
+        "Töröld, vagy cseréld konkrét állításra: „{r}”.",
+    ),
+    "homalyos-hivatkozas": (
+        "Nevezd meg a forrásokat",
+        "A meg nem nevezett tekintély nem ellenőrizhető, ezért nem is érv.",
+        [
+            "Keresd meg, melyik kutatásra, szerzőre vagy adatra gondoltál.",
+            "Írd be név és évszám szerint, vagy hivatkozd meg.",
+            "Ha nincs ilyen forrás, az állítást töröld, vagy jelöld saját véleményként.",
+        ],
+        "Írd oda a pontos forrást, vagy hagyd el az állítást: „{r}”.",
+    ),
+    "tudasvagas": (
+        "Töröld a saját tudásszintre tett kitételeket",
+        "A kitétel nem ad információt, csak elbizonytalanítja az állítást.",
+        ["Töröld a fordulatot.", "Ha az adat kora számít, írd oda a dátumát vagy a forrását."],
+        "Töröld a kitételt: „{r}”.",
+    ),
+    "hizelges": (
+        "Töröld a hízelgő fordulatokat",
+        "A kérdés vagy a téma dicsérete magyarul kínosan hat, és nem válasz.",
+        ["Töröld a mondatot, és kezdd a tárggyal."],
+        "Töröld, és térj a tárgyra: „{r}”.",
+    ),
+    "birtokos-halmozas": (
+        "Bontsd szét az egymásra torlódó birtokos szerkezeteket",
+        "Három-négy egymásba ágyazott birtokos viszonyt az olvasó visszafelé kénytelen kibogozni.",
+        [
+            "Keresd meg a lánc végén álló főnevet: az a mondat valódi tárgya.",
+            "A láncból csinálj mellékmondatot vagy külön mondatot igével („megnéztük, hogyan…”).",
+            "Egy szerkezetben legfeljebb két birtokos viszony maradjon.",
+        ],
+        "Bontsd igei mondatra a birtokos láncot: „{r}”.",
+    ),
+    "amely-lanc": (
+        "Bontsd fel az „amely”-láncokat",
+        "Az egymásba fűzött vonatkozó mellékmondatok végére az olvasó elveszíti a főmondatot.",
+        [
+            "Jelöld meg a főmondatot; az maradjon egyben.",
+            "A rövid mellékmondatból csinálj jelzőt („a tavaly elnyert támogatás”).",
+            "A hosszabbat tedd külön mondatba.",
+        ],
+        "Hagyj legfeljebb egy „amely” mellékmondatot, a többit írd jelzőnek vagy külön mondatnak: „{r}”.",
+    ),
+    "hivataloskodas": (
+        "Egyszerűsítsd a hivataloskodó fordulatokat",
+        "Ezek a fordulatok jogi és hivatali szövegbe valók; máshol távolságtartóvá teszik a hangot.",
+        [
+            "Döntsd el, kell-e a szöveg műfajához a hivatali hang. Ha igen, a találat maradhat.",
+            "Ha nem: „az adott X” → „az X” vagy „ez az X”; „amennyiben” → „ha”; „X tekintetében” → ragos alak („X-ben”, „X-ről”).",
+        ],
+        "Mondd egyszerűbben, ha a műfaj engedi: „{r}”.",
+    ),
+    "ovatoskodas": (
+        "Ritkítsd a tompításokat",
+        "Az egymásra halmozott óvatoskodás után nem marad állítás.",
+        [
+            "Döntsd el, mennyire vagy biztos az állításban.",
+            "Egy tompító szó maradjon („valószínűleg”), a többit töröld.",
+            "Ha a bizonytalanságnak oka van, azt nevezd meg.",
+        ],
+        "Hagyj egyetlen tompítást, vagy állítsd határozottan: „{r}”.",
+    ),
+    "nemcsak-hanem": (
+        "Egyszerűsítsd a „nemcsak… hanem… is” szerkezeteket",
+        "Nyomatékként használva elkopik; a két tag többnyire egyszerűen összeadódik.",
+        [
+            "Ha a két tag egyenrangú, kösd össze „és”-sel.",
+            "Csak ott hagyd meg, ahol a második tag valóban meglepő az első után.",
+        ],
+        "Próbáld „és”-sel összekötni a két tagot: „{r}”.",
+    ),
+    "nem-hanem-suruseg": (
+        "Ritkítsd a „nem X, hanem Y” ellentéteket",
+        "Ha egy bekezdésben többször is tagadással vezeted fel az állítást, az olvasó előbb azt tudja meg, mit nem mondasz.",
+        [
+            "Bekezdésenként legfeljebb egyet hagyj meg, ott, ahol a tagadott tag valódi félreértést hárít el.",
+            "A többinél írd le közvetlenül az állítást (az Y-t).",
+            "Ha a tagadott rész (az X) is fontos, tedd külön mondatba.",
+        ],
+        "Ebben a bekezdésben írd egyenes állításnak az ellentétek többségét; az első: „{r}”.",
+    ),
+    "hato-heto-suruseg": (
+        "Nevezd meg a cselekvőt a „-ható/-hető” alakok helyett",
+        "A személytelen alakok sorozata elrejti, ki állít, ki mér, ki következtet.",
+        [
+            "Nézd végig a bekezdés „-ható/-hető” alakjait.",
+            "Ahol te vagy a cselekvő, írd első személyben („megállapítom”, „azt látjuk”).",
+            "Ahol a lehetőség a lényeg („a módszer más adatokon is használható”), az alak maradhat.",
+        ],
+        "Ebben a bekezdésben írd át cselekvő igére a személytelen alakok egy részét; az első: „{r}”.",
+    ),
+    "harmas-felsorolas": (
+        "Nézd át a hármas felsorolásokat",
+        "A gépies szöveg ritmusból sorol hármat akkor is, ha csak egy vagy kettő tag számít.",
+        [
+            "Minden felsorolásnál kérdezd meg: mindhárom tag külön dolgot jelent?",
+            "A rokon értelmű tagokat vond össze, a súlytalant töröld.",
+            "Ahol tényleg három dolog van, a felsorolás maradjon.",
+        ],
+        "Ebben a bekezdésben ellenőrizd, mindhárom tag kell-e; az első felsorolás: „{r}”.",
+    ),
+    "felkover-suruseg": (
+        "Ritkítsd a félkövér kiemeléseket",
+        "Ha minden ki van emelve, semmi sincs kiemelve.",
+        ["Bekezdésenként legfeljebb egy-két kiemelést hagyj, a kulcsfogalmon."],
+        "Ebben a bekezdésben hagyj kevesebb kiemelést; az első: „{r}”.",
+    ),
+    "hosszu-mondat": (
+        "Bontsd fel a túl hosszú mondatokat",
+        "Negyven szó fölött az olvasó a mondat végére elfelejti az elejét.",
+        [
+            "Számold meg, hány önálló állítás van a mondatban.",
+            "Minden állítás kapjon saját mondatot; a kötőszó („mivel”, „amely”, „és”) helyén vágj.",
+            "A két-három rövidebb mondat hossza váltakozzon.",
+        ],
+        "Bontsd két-három mondatra: „{r}”.",
+    ),
+    "idezojel": (
+        "Javítsd magyarra az idézőjeleket",
+        "Magyar szövegben az idézőjel alul nyit és felül zár.",
+        [
+            "Cseréld a nyitó jelet „-re, a zárót ”-re.",
+            "Idézeten belüli idézethez »ilyen« jelet használj.",
+        ],
+        "Cseréld magyar idézőjelre: {r}.",
+    ),
+}
+
 _FORDITOTT = [
     (az, [re.compile(m, FLAGS) for m in mintak])
     for az, _s, _l, _j, mintak in KIFEJEZES_SZABALYOK
@@ -359,6 +546,12 @@ def ellenoriz(szoveg, kihagy=()):
     for bek in BEKEZDES_RE.finditer(tiszta):
         for az, minta, kuszob in _SURUSEG:
             egyezesek = list(minta.finditer(bek.group(0)))
+            if az == "harmas-felsorolas":
+                # A nevek felsorolása (például szerzőhármas) nem stíluskérdés.
+                egyezesek = [
+                    m for m in egyezesek
+                    if not all(s[:1].isupper() for s in re.split(r",\s+|\s+", m.group(0)) if len(s) > 3)
+                ]
             if len(egyezesek) >= kuszob:
                 elso = egyezesek[0]
                 felvesz(
@@ -399,6 +592,89 @@ def osszesites(szoveg, talalatok):
 
 
 # ---------------------------------------------------------------------------
+# Javítási útmutató
+# ---------------------------------------------------------------------------
+def _hely(talalat, docx):
+    """Ember számára olvasható helymegjelölés."""
+    if docx:  # a kinyert szövegben a bekezdéseket üres sor választja el
+        return "%d. bekezdés" % ((talalat["sor"] + 1) // 2)
+    return "%d. sor" % talalat["sor"]
+
+
+def utmutato(fajl, talalatok, osszes, docx=False):
+    """Markdown javítási útmutató: mit, miért és hol kell javítani, utasításokként."""
+    ki = ["# Javítási útmutató: %s" % fajl, ""]
+    if not talalatok:
+        ki += ["A program nem talált megjelölendő fordulatot (%d szó)." % osszes["szavak"], ""]
+        return "\n".join(ki)
+
+    csoportok = {}
+    for t in talalatok:
+        csoportok.setdefault(t["szabaly"], []).append(t)
+    # Előbb a „figyelem” szintű teendők, azon belül a gyakoribb elöl.
+    sorrend = sorted(
+        csoportok,
+        key=lambda az: (-SZINTEK[SZABALY_LEIRASOK[az][0]], -len(csoportok[az]), az),
+    )
+
+    ki += [
+        "A szövegben %d megjelölt hely van %d szóra (%.1f / ezer szó), %d féle teendővel."
+        % (osszes["talalatok"], osszes["szavak"], osszes["ezer_szora"], len(sorrend)),
+        "",
+        "Az útmutató utasításokat ad, a szöveget nem írja át. Minden jelölés kérdés: "
+        "ha egy fordulat a műfajhoz tartozik vagy szándékos, maradhat.",
+        "",
+        "## 1. Teendők fontossági sorrendben",
+        "",
+    ]
+    for i, az in enumerate(sorrend, 1):
+        cim, miert, lepesek, _sablon = UTMUTATO[az]
+        helyek = csoportok[az]
+        szint = SZABALY_LEIRASOK[az][0]
+        ki.append("### %d. %s" % (i, cim))
+        ki.append("")
+        ki.append(
+            "%d hely · %s · szabály: `%s`"
+            % (len(helyek), "javítandó" if szint == "figyelem" else "mérlegelendő", az)
+        )
+        ki.append("")
+        ki.append("**Miért gond:** %s" % miert)
+        ki.append("")
+        ki.append("**Így javítsd:**")
+        ki.append("")
+        for n, lepes in enumerate(lepesek, 1):
+            ki.append("%d. %s" % (n, lepes))
+        ki.append("")
+        ki.append("**Hol:**")
+        ki.append("")
+        for t in helyek:
+            ki.append("- %s: „%s”" % (_hely(t, docx), t["reszlet"]))
+        ki.append("")
+
+    ki += ["## 2. Végighaladás a szövegen", "", "A fenti teendők a szöveg sorrendjében, helyenként:", ""]
+    elozo = None
+    for t in talalatok:
+        hely = _hely(t, docx)
+        if hely != elozo:
+            if elozo is not None:
+                ki.append("")
+            ki.append("**%s**" % hely)
+            ki.append("")
+            elozo = hely
+        ki.append("- %s" % UTMUTATO[t["szabaly"]][3].format(r=t["reszlet"]))
+    ki.append("")
+    ki += [
+        "## 3. Ellenőrzés a javítás után",
+        "",
+        "1. Olvasd fel hangosan az átírt bekezdéseket: ahol megakadsz, ott még dolgozni kell.",
+        "2. Nézd meg, hogy a tartalom nem változott-e: minden tény, szám és hivatkozás megvan.",
+        "3. Futtasd újra a programot, és vesd össze a találatok számát.",
+        "",
+    ]
+    return "\n".join(ki)
+
+
+# ---------------------------------------------------------------------------
 # Parancssor
 # ---------------------------------------------------------------------------
 def _szabalylista():
@@ -417,6 +693,8 @@ def main(argv=None):
     )
     p.add_argument("fajlok", nargs="*", metavar="FÁJL", help=".txt, .md vagy .docx; „-” a szabványos bemenet")
     p.add_argument("--json", action="store_true", help="gépi feldolgozásra alkalmas JSON-kimenet")
+    p.add_argument("--utmutato", action="store_true", help="javítási útmutató Markdown formában: mit, miért és hol javíts")
+    p.add_argument("--kimenet", metavar="FÁJL", help="a kimenet ebbe a fájlba kerül a képernyő helyett")
     p.add_argument("--kihagy", default="", metavar="SZABÁLY[,SZABÁLY]", help="kihagyandó szabályok azonosítói")
     p.add_argument("--szint", choices=sorted(SZINTEK, key=SZINTEK.get), default="info", help="legalább ilyen szintű találatok (alapértelmezés: info)")
     p.add_argument("--szabalyok", action="store_true", help="a szabályok listája")
@@ -448,19 +726,37 @@ def main(argv=None):
         volt_talalat = volt_talalat or bool(talalatok)
         eredmenyek.append({"fajl": utvonal, "talalatok": talalatok, "osszesites": osszesites(szoveg, talalatok)})
 
+    if args.json and args.utmutato:
+        p.error("a --json és az --utmutato nem használható együtt")
+
+    sorok = []
     if args.json:
-        json.dump(eredmenyek, sys.stdout, ensure_ascii=False, indent=2)
-        print()
+        sorok.append(json.dumps(eredmenyek, ensure_ascii=False, indent=2))
+    elif args.utmutato:
+        for e in eredmenyek:
+            docx = e["fajl"].lower().endswith(".docx")
+            sorok.append(utmutato(e["fajl"], e["talalatok"], e["osszesites"], docx))
     else:
         for e in eredmenyek:
             for t in e["talalatok"]:
-                print("%s:%d:%d  %s  [%s]" % (e["fajl"], t["sor"], t["oszlop"], t["szint"], t["szabaly"]))
-                print("    %s: „%s”" % (t["leiras"], t["reszlet"]))
-                print("    → %s" % t["javaslat"])
+                sorok.append("%s:%d:%d  %s  [%s]" % (e["fajl"], t["sor"], t["oszlop"], t["szint"], t["szabaly"]))
+                sorok.append("    %s: „%s”" % (t["leiras"], t["reszlet"]))
+                sorok.append("    → %s" % t["javaslat"])
             o = e["osszesites"]
-            print("%s: %d találat, %d szó (%.1f / ezer szó)" % (e["fajl"], o["talalatok"], o["szavak"], o["ezer_szora"]))
+            sorok.append("%s: %d találat, %d szó (%.1f / ezer szó)" % (e["fajl"], o["talalatok"], o["szavak"], o["ezer_szora"]))
             for az, db in o["szabalyonkent"].items():
-                print("    %-22s %d" % (az, db))
+                sorok.append("    %-22s %d" % (az, db))
+    szoveg_ki = "\n".join(sorok) + "\n"
+
+    if args.kimenet:
+        try:
+            with open(args.kimenet, "w", encoding="utf-8") as f:
+                f.write(szoveg_ki)
+        except OSError as hiba:
+            print("stiluslint: %s: nem írható (%s)" % (args.kimenet, hiba), file=sys.stderr)
+            return 2
+    else:
+        sys.stdout.write(szoveg_ki)
     return 1 if (args.szigoru and volt_talalat) else 0
 
 

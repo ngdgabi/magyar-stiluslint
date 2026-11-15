@@ -34,6 +34,22 @@ peldak/minta.txt:3:327  figyelem  [kerul-asra]
     → Nevezd meg, ki mit csinál: „megállapításra került” → „megállapítottuk”.
 ```
 
+### Javítási útmutató
+
+Az `--utmutato` kapcsolóval a program a találatok listája helyett Markdown útmutatót ír: mit, miért és hol érdemes javítani, utasítások formájában. A szöveget ekkor sem írja át.
+
+```bash
+python3 stiluslint.py kezirat.docx --utmutato --kimenet utmutato.md
+```
+
+Az útmutató három részből áll:
+
+1. **Teendők fontossági sorrendben:** minden teendőhöz leírja, miért gond, lépésekben megadja a javítás módját, és felsorolja az érintett helyeket. Elöl a `figyelem` szintű, gyakoribb teendők állnak.
+2. **Végighaladás a szövegen:** ugyanezek helyenként, a szöveg sorrendjében, egy-egy utasítással.
+3. **Ellenőrzés a javítás után.**
+
+A hely `.txt` és `.md` fájlnál a sor száma, `.docx` fájlnál a nem üres bekezdés sorszáma. Minta: [peldak/minta_utmutato.md](peldak/minta_utmutato.md).
+
 ### Kapcsolók
 
 | Kapcsoló | Mire való |
@@ -41,6 +57,8 @@ peldak/minta.txt:3:327  figyelem  [kerul-asra]
 | `--szint info\|figyelem` | Csak a legalább ilyen szintű találatok (alapértelmezés: `info`) |
 | `--kihagy a,b` | A felsorolt szabályok kihagyása |
 | `--json` | JSON-kimenet más programnak |
+| `--utmutato` | Javítási útmutató Markdown formában |
+| `--kimenet FÁJL` | A kimenet fájlba kerül a képernyő helyett |
 | `--szigoru` | 1-es kilépési kód, ha van találat (például CI-ben) |
 | `--szabalyok` | A szabályok listája leírással |
 
